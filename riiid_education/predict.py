@@ -192,6 +192,10 @@ def calculate_user_features(df: pd.DataFrame, inplace=True) -> Optional[pd.DataF
 
     if not inplace:
         df = df.copy()
+    df["prior_question_had_explanation"] = df["prior_question_had_explanation"].apply(
+        bool_to_float
+    )
+
     df["recent_answered"] = df["recent_history_answered_correctly"].apply(len)
     df["recent_correct"] = df["recent_history_answered_correctly"].apply(sum)
     df["recent_correct_baseline"] = df["recent_history_question_accuracy"].apply(sum)
@@ -235,6 +239,16 @@ def calculate_user_features(df: pd.DataFrame, inplace=True) -> Optional[pd.DataF
     df["recent_avg_prior_question_had_explanation"] = (
         df["recent_prior_question_had_explanation"] / df["recent_answered"]
     )
+
+    df["frequency_of_use"] = (
+        (df["answered"] + 1) / (df["timestamp"] / (1000 * 60 * 60 * 24))
+    ).replace([-np.inf, np.inf], np.nan)
+
+    for col in constants.TRAIN_COLS:
+        if col in ["answered", "timestamp"]:
+            df[col].fillna(0, inplace=True)
+        else:
+            df[col].fillna(-1, inplace=True)
 
     if not inplace:
         return df
@@ -420,24 +434,7 @@ def predict(
     timer["merge_question_features"] = (toc - tic).total_seconds()
 
     tic = datetime.utcnow()
-    test["prior_question_had_explanation"] = test[
-        "prior_question_had_explanation"
-    ].apply(bool_to_float)
-    test["frequency_of_use"] = (
-        (test["answered"] + 1) / (test["timestamp"] / (1000 * 60 * 60 * 24))
-    ).replace([-np.inf, np.inf], np.nan)
-    for col in constants.TRAIN_COLS:
-        if col in ["answered", "timestamp"]:
-            test[col].fillna(0, inplace=True)
-        else:
-            test[col].fillna(-1, inplace=True)
-    toc = datetime.utcnow()
-    timer["feature_cleanup"] = (toc - tic).total_seconds()
-
-    tic = datetime.utcnow()
-    # test["answered_correctly"] = 0.5 * m_xgb.predict_proba(test[constants.TRAIN_COLS])[
-    #     :, 1
-    # ] + 0.5 * m_lgbm.predict(test[constants.TRAIN_COLS])
+    # test["answered_correctly"] = m_xgb.predict_proba(test[constants.TRAIN_COLS])[:, 1]
     test["answered_correctly"] = m_lgbm.predict(test[constants.TRAIN_COLS])
     toc = datetime.utcnow()
     timer["prediction"] = (toc - tic).total_seconds()
