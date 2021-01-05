@@ -41,10 +41,5 @@ pipenv run generate_predictions
 
 `pipenv run jupyter lab` to run a Juypter notebook with the correct Python environment.
 
-Take a sample of users to iterate on feature engineering and validating models.
-See `prototype.ipynb` for an example.
-
-### Insights
-
-Exploratory summaries of feature distributions and feature importance as determined
-by the models: see `model_insights.ipynb`.
+Suggest taking a sample of users to iterate on feature engineering and validating models.
+See `riiid_education.pretrain.read_train_sample()`
