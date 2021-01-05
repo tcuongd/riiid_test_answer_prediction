@@ -412,7 +412,7 @@ def plot_eval(eval_df: pd.DataFrame) -> None:
     plt.savefig("models/logloss_eval.png")
 
 
-def pretrain_models() -> None:
+def train_models() -> None:
     """
     Train and save models.
     """
