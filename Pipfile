@@ -1,0 +1,33 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+jupyter = "*"
+jupyterlab = "*"
+black = "*"
+jedi = "==0.17.2"
+
+[packages]
+pandas = "*"
+xgboost = "*"
+scikit-learn = "*"
+scipy = "*"
+matplotlib = "*"
+seaborn = "*"
+shap = "*"
+riiid-education = {editable = true, path = "."}
+lightgbm = "*"
+
+[requires]
+python_version = "3.8"
+
+[pipenv]
+allow_preleases = true
+
+[scripts]
+pretrain_models = "python -c \"from riiid_education.pretrain import pretrain_models; pretrain_models();\""
+prebuild_user_summary = "python -c \"from riiid_education.predict import prebuild_user_summary; prebuild_user_summary();\""
+generate_predictions = "python -c \"from riiid_education.predict import generate_predictions; generate_predictions();\""
+generate_predictions_large = "python -c \"from riiid_education.predict import generate_predictions_large; generate_predictions_large();\""

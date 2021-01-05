@@ -1,0 +1,12 @@
+*.DS_Store
+
+*.b
+*.csv
+*.json
+*.png
+*.pdf
+working/
+
+**/.ipynb_checkpoints/
+**/build/
+**/riiid_education.egg-info/
