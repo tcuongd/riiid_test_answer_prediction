@@ -30,7 +30,7 @@ DATAPREP_COLS = [
 QUESTION_COLS = ["question_id", "part", "tags"]
 QUESTION_FEATURES_PERC = 0.5
 QUESTION_FEATURES_PRIOR = (10, 10)
-RECENT_WINDOW = 15
+RECENT_WINDOW = 50
 QUESTION_FEATURE_COLS = [
     "question_accuracy",
     "part_accuracy",
