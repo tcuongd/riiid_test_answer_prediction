@@ -10,18 +10,6 @@ def cumsum_to_previous(x: pd.Series) -> pd.Series:
     """
     return x.shift(periods=1).cumsum()
 
-def rollsum(x: pd.Series, rolling_window: int) -> pd.Series:
-    """
-    Rolling sum to the current value in the group, assuming the dataframe is sorted in ascending order of timestamp.
-    """
-    return x.rolling(window=rolling_window).sum()
-
-def rollsum_to_previous(x: pd.Series, rolling_window: int) -> pd.Series:
-    """
-    Rolling sum to the previous value in the group, assuming the dataframe is sorted in ascending order of timestamp.
-    """
-    return x.shift(periods=1).rolling(window=rolling_window).sum()
-
 def bool_to_float(x: Optional[bool]) -> np.float:
     """
     Apply row-wise to turn a nullable bool series (pd.Series with dtype object)

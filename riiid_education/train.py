@@ -10,7 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from . import constants
-from .utils import cumsum_to_previous, rollsum_to_previous, get_logger, rollsum
+from .utils import cumsum_to_previous, get_logger
 
 plt.rcParams["figure.figsize"] = [8, 6]
 sns.set_style("whitegrid")
@@ -172,7 +172,7 @@ def train_question_features(
         features[f"diff_question_{agg_type}"] = (
             features["question_accuracy"] - features[f"{agg_type}_accuracy"]
         )
-    features = features.fillna(-1)
+    features = features.fillna(constants.DEFAULT_NA_VALUE)
 
     return features
 
@@ -202,7 +202,12 @@ def build_features(
     -------
     One row per observations, with user_id, the feature columns, and the target.
     """
-    obs_df = obs_df.copy()
+    obs_df = pd.merge(
+        obs_df,
+        question_features[["content_id"] + constants.QUESTION_FEATURE_COLS],
+        how="left",
+        on="content_id",
+    )
     # Users' total previous accuracy
     user_g = obs_df.groupby("user_id")
     obs_df["answered"] = user_g.cumcount()
@@ -210,54 +215,56 @@ def build_features(
     obs_df["cum_accuracy"] = obs_df["correct"] / obs_df["answered"]
     # Users' recent previous accuracy
     obs_df["answered_recent"] = obs_df["answered"].clip(upper=recent_obs_number)
-    obs_df["correct_recent"] = user_g["answered_correctly"].apply(
-        rollsum_to_previous, rolling_window=recent_obs_number
+    obs_df["correct_recent"] = obs_df["correct"] - user_g["correct"].shift(
+        periods=recent_obs_number
     )
     obs_df.loc[obs_df["correct_recent"].isna(), "correct_recent"] = obs_df.loc[
         obs_df["correct_recent"].isna(), "correct"
     ]
     obs_df["recent_accuracy"] = obs_df["correct_recent"] / obs_df["answered_recent"]
     # Stability in users' accuracy metric (i.e. how consistent is their track record)
-    user_g = obs_df.groupby("user_id")
-    obs_df["trend_accuracy"] = obs_df["recent_accuracy"] - obs_df["cum_accuracy"]
+    obs_df["trend_accuracy"] = constants.DEFAULT_NA_VALUE
+    obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "trend_accuracy"] = (
+        obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "recent_accuracy"]
+        - obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "cum_accuracy"]
+    )
     # Previous question elapsed time and explanation flag
     for col in ["prior_question_elapsed_time", "prior_question_had_explanation"]:
         obs_df[f"cum_{col}"] = user_g[col].cumsum()
         obs_df[f"cum_avg_{col}"] = obs_df[f"cum_{col}"] / obs_df["answered"]
-        obs_df[f"recent_{col}"] = user_g[col].apply(
-            rollsum, rolling_window=recent_obs_number
+        obs_df[f"recent_{col}"] = obs_df[f"cum_{col}"] - user_g[f"cum_{col}"].shift(
+            periods=recent_obs_number
         )
+        obs_df.loc[obs_df[f"recent_{col}"].isna(), f"recent_{col}"] = obs_df.loc[
+            obs_df[f"recent_{col}"].isna(), f"cum_{col}"
+        ]
         obs_df[f"recent_avg_{col}"] = (
             obs_df[f"recent_{col}"] / obs_df["answered_recent"]
         )
-
-    # Merge on question features
-    obs_df = pd.merge(
-        obs_df,
-        question_features[["content_id"] + constants.QUESTION_FEATURE_COLS],
-        how="left",
-        on="content_id",
-    )
     # Users' previous performance taking into account the difficulty of the question.
     # Score is between 0 and 2 (the higher the better)
     obs_df["answered_score"] = (
         obs_df["answered_correctly"] - obs_df["question_accuracy"] + 1
     )
-    user_g = obs_df.groupby("user_id")
     obs_df["cum_score"] = user_g["answered_score"].apply(cumsum_to_previous).fillna(0)
     obs_df["cum_avg_score"] = obs_df["cum_score"] / obs_df["answered"]
-    obs_df["recent_score"] = (
-        user_g["answered_score"]
-        .apply(rollsum_to_previous, rolling_window=recent_obs_number)
-        .fillna(0)
+    obs_df["recent_score"] = obs_df["cum_score"] - user_g["cum_score"].shift(
+        periods=recent_obs_number
     )
+    obs_df.loc[obs_df["recent_score"].isna(), "recent_score"] = obs_df.loc[
+        obs_df["recent_score"].isna(), "cum_score"
+    ]
     obs_df["recent_avg_score"] = obs_df["recent_score"] / obs_df["answered_recent"]
-    obs_df["trend_avg_score"] = obs_df["recent_avg_score"] - obs_df["cum_avg_score"]
+    obs_df["trend_avg_score"] = constants.DEFAULT_NA_VALUE
+    obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "trend_avg_score"] = (
+        obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "recent_avg_score"]
+        - obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "cum_avg_score"]
+    )
     # User 'frequency of use' proxied by questions answered per day
     obs_df["frequency_of_use"] = (
         (obs_df["answered"] + 1) / (obs_df["timestamp"] / (1000 * 60 * 60 * 24))
     ).replace([-np.inf, np.inf], np.nan)
-    obs_df = obs_df.fillna(-1)
+    obs_df = obs_df.fillna(constants.DEFAULT_NA_VALUE)
 
     return obs_df[constants.TRAIN_COLS + ["user_id", constants.TARGET_COL]]
 
@@ -366,7 +373,9 @@ def extract_xgboost_features(model: xgboost.XGBClassifier) -> pd.DataFrame:
 
 
 def extract_lightgbm_eval(model: lightgbm.LGBMClassifier) -> pd.DataFrame:
-    df = pd.DataFrame(model.evals_result_["val"]).rename(columns={"binary_logloss": "logloss"})
+    df = pd.DataFrame(model.evals_result_["val"]).rename(
+        columns={"binary_logloss": "logloss"}
+    )
     df["iteration"] = [i + 1 for i in range(df.shape[0])]
     df["eval_set"] = "val"
     df["model"] = "lgbm"

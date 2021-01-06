@@ -5,6 +5,7 @@ FINAL_MAIN_XGB = "models/main_model_xgb.b"
 FINAL_MAIN_LGBM = "models/main_model_lgbm.b"
 FINAL_QUESTION_FEATURES = "models/question_features.csv"
 NUM_USERS = 393655  # ALL USERS
+DEFAULT_NA_VALUE = -99
 TRAIN_SCHEMA = {
     "row_id": np.int64,
     "timestamp": np.int64,
@@ -69,7 +70,7 @@ XGBOOST_PARAMS = {
     "booster": "gbtree",
     "tree_method": "hist",
     "subsample": 0.5,
-    "missing": -1,
+    "missing": DEFAULT_NA_VALUE,
     "use_label_encoder": False,
 }
 LIGHTGBM_PARAMS = {
