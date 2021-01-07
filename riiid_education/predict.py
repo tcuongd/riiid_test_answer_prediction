@@ -202,7 +202,11 @@ def calculate_user_features(df: pd.DataFrame, inplace=True) -> Optional[pd.DataF
 
     df["cum_accuracy"] = df["correct"] / df["answered"]
     df["recent_accuracy"] = df["recent_correct"] / df["recent_answered"]
-    df["trend_accuracy"] = df["recent_accuracy"] - df["cum_accuracy"]
+    df["trend_accuracy"] = constants.DEFAULT_NA_VALUE
+    df.loc[df["recent_answered"] < df["answered"], "trend_accuracy"] = (
+        df.loc[df["recent_answered"] < df["answered"], "recent_accuracy"]
+        - df.loc[df["recent_answered"] < df["answered"], "cum_accuracy"]
+    )
 
     df["cum_avg_score"] = (
         df["correct"] - df["correct_baseline"] + df["answered"]
@@ -210,7 +214,11 @@ def calculate_user_features(df: pd.DataFrame, inplace=True) -> Optional[pd.DataF
     df["recent_avg_score"] = (
         df["recent_correct"] - df["recent_correct_baseline"] + df["recent_answered"]
     ) / df["recent_answered"]
-    df["trend_avg_score"] = df["recent_avg_score"] - df["cum_avg_score"]
+    df["trend_avg_score"] = constants.DEFAULT_NA_VALUE
+    df.loc[df["recent_answered"] < df["answered"], "trend_avg_score"] = (
+        df.loc[df["recent_answered"] < df["answered"], "recent_avg_score"]
+        - df.loc[df["recent_answered"] < df["answered"], "cum_avg_score"]
+    )
 
     df["cum_prior_question_elapsed_time"] = (
         df["cum_prior_question_elapsed_time"] + df["prior_question_elapsed_time"]
@@ -248,7 +256,7 @@ def calculate_user_features(df: pd.DataFrame, inplace=True) -> Optional[pd.DataF
         if col in ["answered", "timestamp"]:
             df[col].fillna(0, inplace=True)
         else:
-            df[col].fillna(-1, inplace=True)
+            df[col].fillna(constants.DEFAULT_NA_VALUE, inplace=True)
 
     if not inplace:
         return df
@@ -408,6 +416,17 @@ def predict(
         timer["update_user_summary"] = (toc - tic).total_seconds()
 
     test = test.loc[test["content_type_id"] == 0].drop(columns="content_type_id")
+    tic = datetime.utcnow()
+    test = pd.merge(
+        test,
+        question_features,
+        how="left",
+        left_on="content_id",
+        right_index=True,
+        copy=False,
+    )
+    toc = datetime.utcnow()
+    timer["merge_question_features"] = (toc - tic).total_seconds()
 
     tic = datetime.utcnow()
     required_columns = [
@@ -420,18 +439,6 @@ def predict(
     calculate_user_features(test, inplace=True)
     toc = datetime.utcnow()
     timer["merge_user_features"] = (toc - tic).total_seconds()
-
-    tic = datetime.utcnow()
-    test = pd.merge(
-        test,
-        question_features,
-        how="left",
-        left_on="content_id",
-        right_index=True,
-        copy=False,
-    )
-    toc = datetime.utcnow()
-    timer["merge_question_features"] = (toc - tic).total_seconds()
 
     tic = datetime.utcnow()
     # test["answered_correctly"] = m_xgb.predict_proba(test[constants.TRAIN_COLS])[:, 1]
