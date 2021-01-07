@@ -136,8 +136,7 @@ def train_question_features(
         .reset_index()
     )
 
-    prior_alpha = constants.QUESTION_FEATURES_PRIOR[0]
-    prior_beta = constants.QUESTION_FEATURES_PRIOR[1]
+    prior_alpha, prior_beta = constants.QUESTION_FEATURES_PRIOR
     questions_df["question_accuracy"] = (
         questions_df["answered_correctly"] + prior_alpha
     ) / (questions_df["answered"] + prior_alpha + prior_beta)
@@ -212,10 +211,7 @@ def build_features(
     user_g = obs_df.groupby("user_id")
     obs_df["answered"] = user_g.cumcount()
     obs_df["correct"] = user_g["answered_correctly"].apply(cumsum_to_previous).fillna(0)
-    prior_alpha, prior_beta = constants.USER_FEATURES_PRIOR
-    obs_df["cum_accuracy"] = (obs_df["correct"] + prior_alpha) / (
-        obs_df["answered"] + prior_alpha + prior_beta
-    )
+    obs_df["cum_accuracy"] = obs_df["correct"] / obs_df["answered"]
     # Users' recent previous accuracy
     obs_df["answered_recent"] = obs_df["answered"].clip(upper=recent_obs_number)
     obs_df["correct_recent"] = obs_df["correct"] - user_g["correct"].shift(
@@ -224,9 +220,7 @@ def build_features(
     obs_df.loc[obs_df["correct_recent"].isna(), "correct_recent"] = obs_df.loc[
         obs_df["correct_recent"].isna(), "correct"
     ]
-    obs_df["recent_accuracy"] = (obs_df["correct_recent"] + prior_alpha) / (
-        obs_df["answered_recent"] + prior_alpha + prior_beta
-    )
+    obs_df["recent_accuracy"] = obs_df["correct_recent"] / obs_df["answered_recent"]
     # Stability in users' accuracy metric (i.e. how consistent is their track record)
     obs_df["trend_accuracy"] = constants.DEFAULT_NA_VALUE
     obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "trend_accuracy"] = (
@@ -252,18 +246,14 @@ def build_features(
         obs_df["answered_correctly"] - obs_df["question_accuracy"] + 1
     )
     obs_df["cum_score"] = user_g["answered_score"].apply(cumsum_to_previous).fillna(0)
-    obs_df["cum_avg_score"] = (obs_df["cum_score"] + prior_alpha) / (
-        obs_df["answered"] + prior_alpha + prior_beta
-    )
+    obs_df["cum_avg_score"] = obs_df["cum_score"] / obs_df["answered"]
     obs_df["recent_score"] = obs_df["cum_score"] - user_g["cum_score"].shift(
         periods=recent_obs_number
     )
     obs_df.loc[obs_df["recent_score"].isna(), "recent_score"] = obs_df.loc[
         obs_df["recent_score"].isna(), "cum_score"
     ]
-    obs_df["recent_avg_score"] = (obs_df["recent_score"] + prior_alpha) / (
-        obs_df["answered_recent"] + prior_alpha + prior_beta
-    )
+    obs_df["recent_avg_score"] = obs_df["recent_score"] / obs_df["answered_recent"]
     obs_df["trend_avg_score"] = constants.DEFAULT_NA_VALUE
     obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "trend_avg_score"] = (
         obs_df.loc[obs_df["answered_recent"] < obs_df["answered"], "recent_avg_score"]
@@ -479,5 +469,6 @@ def train_models() -> None:
     lgbm_features.to_csv("models/main_model_lgbm_features.csv", index=False)
     xgb_features.to_csv("models/main_model_xgb_features.csv", index=False)
     eval_results = extract_eval(lgbm=lgbm, xgb=xgb)
+    eval_results.to_csv("models/eval_results.csv", index=False)
     plot_eval(eval_results)
     log.info("Eval plots model features saved to models/")
