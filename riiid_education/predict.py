@@ -273,7 +273,7 @@ class UserSummary:
         """
         self.data = None
 
-    def load(self, filepath) -> None:
+    def load(self, filepath: str) -> None:
         """
         Load UserSummary.data from a csv file.
         """
@@ -320,7 +320,7 @@ class UserSummary:
         data = pd.concat(dfs)
         self.data = data.to_dict(orient="index")
 
-    def export(self, filepath) -> None:
+    def export(self, filepath: str) -> None:
         tic = datetime.utcnow()
         log.info(f"Exporting UserSummary data in csv format.")
         df = pd.DataFrame.from_dict(self.data, orient="index")
