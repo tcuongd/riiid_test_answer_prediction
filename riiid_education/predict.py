@@ -13,21 +13,21 @@ from .utils import get_logger, bool_to_float
 log = get_logger()
 
 
-def load_question_features(filepath) -> pd.DataFrame:
+def load_question_features(filepath: str) -> pd.DataFrame:
     df = pd.read_csv(filepath)[["content_id"] + constants.QUESTION_FEATURE_COLS]
     df.set_index("content_id", inplace=True)
 
     return df
 
 
-def load_xgboost(filepath) -> xgboost.XGBClassifier:
+def load_xgboost(filepath: str) -> xgboost.XGBClassifier:
     m = xgboost.XGBClassifier()
     m.load_model(filepath)
 
     return m
 
 
-def load_lgbm(filepath) -> lightgbm.Booster:
+def load_lgbm(filepath: str) -> lightgbm.Booster:
     m = lightgbm.Booster(model_file=filepath)
 
     return m
